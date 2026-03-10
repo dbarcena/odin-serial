@@ -1,4 +1,4 @@
-package serialport
+package serial
 
 import "core:fmt"
 import "core:log"
