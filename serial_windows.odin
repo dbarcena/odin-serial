@@ -1,7 +1,6 @@
 package serial
 
 import "core:fmt"
-import "core:log"
 import "core:strconv"
 import win32 "core:sys/windows"
 import "core:unicode/utf16"
@@ -46,7 +45,7 @@ open :: proc(s: ^Serial, dev: string, baud: Baud_Rate, size: u8) -> bool {
 	stat: win32.COMSTAT
 	errors: win32.Com_Error
 	if win32.ClearCommError(s.handle, &errors, &stat) == win32.FALSE {
-		fmt.eprintln("comm errors:", errors)
+		return false
 	}
 
 	s.dcb.DCBlength = size_of(s.dcb)
@@ -76,7 +75,6 @@ close :: proc(s: ^Serial) {
 queryRecv :: proc(s: ^Serial) -> int {
 
 	if s.handle == win32.INVALID_HANDLE {
-		fmt.eprintln("Serial port not open.")
 		return -1
 	}
 
@@ -84,12 +82,11 @@ queryRecv :: proc(s: ^Serial) -> int {
 	cs: win32.COMSTAT
 
 	if !win32.ClearCommError(s.handle, &nError, &cs) {
-		fmt.eprintln("ClearCommError failed.")
 		return -1
 	}
 
 	if nError != nil {
-		fmt.eprintfln("Serial comm error flags: 0x%X", nError)
+		return -1
 	}
 	return int(cs.cbInQue)
 }
@@ -115,7 +112,6 @@ recv :: proc(s: ^Serial, buf: []u8) -> int {
 send :: proc(s: ^Serial, data: []u8) -> int {
 
 	if s.handle == win32.INVALID_HANDLE {
-		fmt.eprintln("Serial port not open.")
 		return -1
 	}
 
@@ -128,24 +124,5 @@ send :: proc(s: ^Serial, data: []u8) -> int {
 		return -1
 	}
 
-	log.debugf(
-		"TX %d bytes: %v s=%s",
-		write_u32,
-		data[:write_u32],
-		buf_to_string(data[:write_u32]),
-	)
-
 	return int(write_u32)
-}
-
-//@(private="package")
-buf_to_string :: proc(b: []u8) -> string {
-	if len(b) == 0 {
-		return ""
-	}
-	l := len(b)
-	if l >= 2 && b[l - 2] == '\r' && b[l - 1] == '\n' {
-		return string(b[:l - 2])
-	}
-	return string(b[:l])
 }
