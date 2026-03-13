@@ -1,9 +1,8 @@
 package serial
 
-import "core:fmt"
-import "core:strconv"
+import "core:sync/chan"
 import win32 "core:sys/windows"
-import "core:unicode/utf16"
+import "core:time"
 
 Baud_Rate :: enum u32 {
 	B2400   = 2400,
@@ -18,12 +17,11 @@ Baud_Rate :: enum u32 {
 
 
 Serial :: struct {
-	dev_buf: [24]u8,
 	handle:  win32.HANDLE,
 	dcb:     win32.DCB,
 }
 
-open :: proc(s: ^Serial, dev: string, baud: Baud_Rate, size: u8) -> bool {
+serial_open :: proc(s: ^Serial, dev: string, baud: Baud_Rate, size: u8) -> bool {
 
 	win32.SetLastError(0)
 	device_wstring := win32.utf8_to_wstring(dev)
@@ -48,6 +46,8 @@ open :: proc(s: ^Serial, dev: string, baud: Baud_Rate, size: u8) -> bool {
 		return false
 	}
 
+	// ------------------------------------------------------------------------------
+	// ------------------------------------------------------------------------------
 	s.dcb.DCBlength = size_of(s.dcb)
 
 	win32.GetCommState(s.handle, &s.dcb)
@@ -61,18 +61,31 @@ open :: proc(s: ^Serial, dev: string, baud: Baud_Rate, size: u8) -> bool {
 
 	win32.SetCommState(s.handle, &new_dcb)
 
+	// ------------------------------------------------------------------------------
+	// Configurar timeouts
+	// ------------------------------------------------------------------------------
+	timeouts: win32.COMMTIMEOUTS
+	timeouts.ReadIntervalTimeout = 50
+	timeouts.ReadTotalTimeoutMultiplier = 10
+	timeouts.ReadTotalTimeoutConstant = 100
+	timeouts.WriteTotalTimeoutMultiplier = 10
+	timeouts.WriteTotalTimeoutConstant = 100
+	win32.SetCommTimeouts(s.handle, &timeouts)
+
+
+	// ------------------------------------------------------------------------------
 	return true
 
 }
 
-close :: proc(s: ^Serial) {
+serial_close :: proc(s: ^Serial) {
 	if s.handle != win32.INVALID_HANDLE {
 		win32.CloseHandle(s.handle)
 	}
 	s.handle = win32.INVALID_HANDLE
 }
 
-queryRecv :: proc(s: ^Serial) -> int {
+serial_queryRecv :: proc(s: ^Serial) -> int {
 
 	if s.handle == win32.INVALID_HANDLE {
 		return -1
@@ -85,15 +98,15 @@ queryRecv :: proc(s: ^Serial) -> int {
 		return -1
 	}
 
-	if nError != nil {
+	if nError != {} {
 		return -1
 	}
 	return int(cs.cbInQue)
 }
 
-recv :: proc(s: ^Serial, buf: []u8) -> int {
+serial_recv :: proc(s: ^Serial, buf: []u8) -> int {
 
-	nBytes := queryRecv(s)
+	nBytes := serial_queryRecv(s)
 	if (nBytes <= 0) {
 		return nBytes
 	}
@@ -109,7 +122,7 @@ recv :: proc(s: ^Serial, buf: []u8) -> int {
 	return int(read_u32)
 }
 
-send :: proc(s: ^Serial, data: []u8) -> int {
+serial_send :: proc(s: ^Serial, data: []u8) -> int {
 
 	if s.handle == win32.INVALID_HANDLE {
 		return -1
