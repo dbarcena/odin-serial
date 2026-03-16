@@ -1,8 +1,6 @@
 package serial
 
-import "core:sync/chan"
 import win32 "core:sys/windows"
-import "core:time"
 
 Baud_Rate :: enum u32 {
 	B2400   = 2400,

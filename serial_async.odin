@@ -52,7 +52,9 @@ serialasync_close :: proc(sa: ^SerialAsync) {
 }
 
 serialasync_send :: proc(sa: ^SerialAsync, data: []u8) -> bool {
-	return chan.send(sa.tx_chan, data)
+	copy_data := make([]u8, len(data))
+	copy(copy_data, data)
+	return chan.send(sa.tx_chan, copy_data)
 }
 
 serialasync_async :: proc(sa: ^SerialAsync) {
@@ -69,7 +71,8 @@ serialasync_async :: proc(sa: ^SerialAsync) {
 		value, ok := chan.try_recv(sa.tx_chan)
 
 		if ok {
-			serial_send(&sa.s,value)
+			serial_send(&sa.s, value)
+			delete(value) // Liberar la memoria de value
 		}
 
 		if serial_queryRecv(&sa.s) > 0 {

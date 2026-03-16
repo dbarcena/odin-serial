@@ -137,7 +137,7 @@ If you have a thread running `serialasync_async`, you can read the data received
 for {
 	data := serial.serialasync_read_frame(&sa,"\r\n")
 	if len(data)==0 {
-    break
+			break
 	}
 	log.infof("Data=%s", data)
 }
